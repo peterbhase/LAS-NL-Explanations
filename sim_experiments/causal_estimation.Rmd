@@ -1,0 +1,539 @@
+---
+title: "causal estimation"
+author: "Peter Hase"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(arm)
+library(extrafont)
+```
+
+```{r read data, warning=FALSE, message=FALSE}
+qa_path <- "cqa-dev-qual.csv"
+nli_path <- "nli-test-qual.tsv"
+qa_data <- read_csv(qa_path)
+nli_data <- read_tsv(nli_path)
+
+```
+
+
+```{r NLI calibration}
+
+nli_data <- nli_data %>%
+  mutate(re_ye_correct = 1*(re_ye==re_label),
+         ra_ye_correct = 1*(ra_ye==ra_label),
+         cage_re_ye_correct = 1*(cage_re_ye==cage_re_label),
+         cage_ra_ye_correct = 1*(cage_ra_ye==cage_ra_label),
+         human_ye_correct = 1*(human_ye==label),
+         human_LAS=1*(human_yxe==label)-(human_yx==label),
+         re_LAS=1*(re_yxe==re_label)-(re_yx==re_label),
+         ra_LAS=1*(ra_yxe==ra_label)-(ra_yx==ra_label),
+         cage_re_LAS=1*(cage_re_yxe==cage_re_label)-(cage_re_yx==cage_re_label),
+         cage_ra_LAS=1*(cage_ra_yxe==cage_ra_label)-(cage_ra_yx==cage_ra_label))
+
+yxe <- c(nli_data$human_yxe, nli_data$re_yxe, nli_data$ra_yxe, nli_data$cage_re_yxe, nli_data$cage_ra_yxe)
+label <- c(nli_data$label, nli_data$re_label, nli_data$ra_label, nli_data$cage_re_label, nli_data$cage_ra_label)
+ye <- c(nli_data$human_ye, nli_data$re_ye, nli_data$ra_ye, nli_data$cage_re_ye, nli_data$cage_ra_ye)
+yx <- c(nli_data$human_yx, nli_data$re_yx, nli_data$ra_yx, nli_data$cage_re_yx, nli_data$cage_ra_yx)
+ye_probs <- c(nli_data$human_ye_probs, nli_data$re_ye_probs, nli_data$ra_ye_probs, nli_data$cage_re_ye_probs, nli_data$cage_ra_ye_probs)
+ye_correct <- 1*(label==ye)
+yxe_correct <- 1*(label==yxe)
+yx_correct <- 1*(label==yx)
+model <- c(rep('human',9824),rep('re',9824),rep('ra',9824),rep('cage_re',9824),rep('cage_ra',9824))
+nli_gather <- tibble(yxe=yxe,
+                     label=label,
+                     ye=ye,
+                     ye_prob=ye_probs,
+                     ye_correct=ye_correct,
+                     yxe_correct=yxe_correct,
+                     yx_correct=yx_correct,
+                     model=model,
+                     LAS=yxe_correct - yx_correct)
+
+hist(nli_data$human_ye_probs) 
+hist(nli_data$re_ye_probs) 
+hist(nli_data$ra_ye_probs) 
+hist(nli_data$cage_re_ye_probs) 
+hist(nli_data$cage_ra_ye_probs)
+
+hist(ye_probs)
+binnedplot(nli_data$human_ye_probs, nli_data$human_ye_correct)
+binnedplot(nli_data$re_ye_probs, nli_data$re_ye_correct)
+binnedplot(nli_data$ra_ye_probs, nli_data$ra_ye_correct)
+binnedplot(nli_data$cage_re_ye_probs, nli_data$cage_re_ye_correct)
+binnedplot(nli_data$cage_ra_ye_probs, nli_data$cage_ra_ye_correct)
+
+model <- glm(ye_correct ~ model * ye_prob, data=nli_gather, family = 'binomial')
+nli_cal_model = model
+
+new_data <- tibble(ye_prob = seq(.3,.4,.001), model = 'human')
+preds <- predict(model, new_data, type='response')
+new_data <- new_data %>%
+  mutate(preds=preds)
+new_data %>%
+  ggplot(aes(ye_prob, preds)) + 
+  geom_point()
+new_data <- tibble(ye_prob = seq(.3,.4,.001), model = 're')
+preds <- predict(model, new_data, type='response')
+new_data <- new_data %>%
+  mutate(preds=preds)
+new_data %>%
+  ggplot(aes(ye_prob, preds)) + 
+  geom_point()
+new_data <- tibble(ye_prob = seq(.3,.4,.001), model = 'ra')
+preds <- predict(model, new_data, type='response')
+new_data <- new_data %>%
+  mutate(preds=preds)
+new_data %>%
+  ggplot(aes(ye_prob, preds)) + 
+  geom_point()
+new_data <- tibble(ye_prob = seq(.3,.4,.001), model = 'cage_re')
+preds <- predict(model, new_data, type='response')
+new_data <- new_data %>%
+  mutate(preds=preds)
+new_data %>%
+  ggplot(aes(ye_prob, preds)) + 
+  geom_point()
+new_data <- tibble(ye_prob = seq(.3,.4,.001), model = 'cage_ra')
+preds <- predict(model, new_data, type='response')
+new_data <- new_data %>%
+  mutate(preds=preds)
+new_data %>%
+  ggplot(aes(ye_prob, preds)) + 
+  geom_point()
+
+preds = predict(model, nli_gather, type='response')
+nli_gather <- nli_gather %>%
+  mutate(preds = preds)
+binnedplot(nli_gather$preds, nli_gather$ye_correct)
+binnedplot(nli_data$human_ye_prob, nli_data$human_ye_correct)
+binnedplot(nli_data$re_ye_prob, nli_data$re_ye_correct)
+binnedplot(nli_data$ra_ye_prob, nli_data$ra_ye_correct)
+binnedplot(nli_data$cage_re_ye_prob, nli_data$cage_re_ye_correct)
+binnedplot(nli_data$cage_ra_ye_prob, nli_data$cage_ra_ye_correct)
+
+
+
+```
+
+
+```{r nli binning}
+
+nli_gather <- nli_gather %>%
+  mutate(bins100=bin(nli_gather$preds, nbins=100, method = 'length'),
+         bins4=bin(nli_gather$preds, nbins=4, method = 'length'),
+         bins3=bin(nli_gather$preds, nbins=3, method = 'length'),
+         bins2=bin(nli_gather$preds, nbins=2, method = 'length'),
+         )
+nli_gather %>%
+  group_by(bins4) %>%
+  summarise(n = n(),
+            ye_mean=mean(ye_correct))
+
+nli_gather <- nli_gather %>%
+  mutate(bins10= ifelse(between(preds, 0, .1), 0,
+               ifelse(between(preds, .1, .2), 1,
+               ifelse(between(preds, .2, .3), 2,
+               ifelse(between(preds, .3, .4), 3,
+               ifelse(between(preds, .4, .5), 4,
+               ifelse(between(preds, .5, .6), 5,
+               ifelse(between(preds, .6, .7), 6,
+               ifelse(between(preds, .7, .8), 7,
+               ifelse(between(preds, .8, .9), 8,
+               ifelse(between(preds, .9, 1), 9, NA
+               )))))))))))
+nli_gather %>%
+  group_by(bins10) %>%
+  summarise(n = n(),
+            ye_mean=mean(ye_correct))
+
+ 
+```
+
+
+```{r nli causal estimation}
+
+# two bins approach
+nli_gather %>%
+  group_by(model, ye_correct) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            n= sum(n))
+
+# multiple bins
+nli_gather %>%
+  group_by(model, bins2) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            n= sum(n))
+
+
+nli_gather %>%
+  group_by(model, bins4) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            n= sum(n))
+
+
+nli_gather %>%
+  group_by(model, bins100) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(LAS,na.rm=TRUE),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            n= sum(n))
+
+nli_gather %>%
+  group_by(model, bins4) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(LAS),
+    n=n()) %>%
+  ungroup() %>%
+  ggplot(aes(bins4, LAS, color=model)) +
+    geom_boxplot()
+
+nli_gather %>%
+  ggplot(aes(preds, LAS, color=model)) +
+    geom_smooth(se=TRUE)
+
+nli_gather %>%
+  filter(preds > 0) %>%
+  ggplot(aes(preds, LAS, color=model)) +
+    geom_smooth(se=FALSE, method='lm', formula = y ~ poly(x,1)) + 
+    geom_hline(aes(yintercept=0)) + 
+  xlab("prob. leaking")
+
+nli_gather %>%
+  group_by(bins10) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+    arrange(bins10)
+
+nli_gather %>%
+  filter(model!='re') %>%
+  group_by(bins10) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+    arrange(bins10)
+
+
+```
+
+
+
+```{r QA calibration}
+
+qa_data <- qa_data %>%
+  mutate(re_ye_correct = 1*(re_ye==re_label),
+         ra_ye_correct = 1*(ra_ye==ra_label),
+         cage_re_ye_correct = 1*(cage_re_ye==cage_re_label),
+         cage_ra_ye_correct = 1*(cage_ra_ye==cage_ra_label),
+         human_ye_correct = 1*(human_ye==label),
+         human_LAS=1*(human_yxe==label)-(human_yx==label),
+         re_LAS=1*(re_yxe==re_label)-(re_yx==re_label),
+         ra_LAS=1*(ra_yxe==ra_label)-(ra_yx==ra_label),
+         cage_re_LAS=1*(cage_re_yxe==cage_re_label)-(cage_re_yx==cage_re_label),
+         cage_ra_LAS=1*(cage_ra_yxe==cage_ra_label)-(cage_ra_yx==cage_ra_label))
+
+yxe <- c(qa_data$human_yxe, qa_data$re_yxe, qa_data$ra_yxe, qa_data$cage_re_yxe, qa_data$cage_ra_yxe)
+label <- c(qa_data$label, qa_data$re_label, qa_data$ra_label, qa_data$cage_re_label, qa_data$cage_ra_label)
+ye <- c(qa_data$human_ye, qa_data$re_ye, qa_data$ra_ye, qa_data$cage_re_ye, qa_data$cage_ra_ye)
+yx <- c(qa_data$human_yx, qa_data$re_yx, qa_data$ra_yx, qa_data$cage_re_yx, qa_data$cage_ra_yx)
+ye_probs <- c(qa_data$human_ye_prob, qa_data$re_ye_prob, qa_data$ra_ye_prob, qa_data$cage_re_ye_prob, qa_data$cage_ra_ye_prob)
+ye_correct <- 1*(label==ye)
+yxe_correct <- 1*(label==yxe)
+yx_correct <- 1*(label==yx)
+model <- c(rep('human',950),rep('re',950),rep('ra',950),rep('cage_re',950),rep('cage_ra',950))
+qa_gather <- tibble(yxe=yxe,
+                     label=label,
+                     ye=ye,
+                     ye_prob=ye_probs,
+                     ye_correct=ye_correct,
+                     yxe_correct=yxe_correct,
+                     yx_correct=yx_correct,
+                     model=model,
+                     LAS=yxe_correct - yx_correct)
+
+hist(qa_data$human_ye_prob) 
+hist(qa_data$re_ye_prob) 
+hist(qa_data$ra_ye_prob) 
+hist(qa_data$cage_re_ye_prob) 
+hist(qa_data$cage_ra_ye_prob)
+
+hist(ye_probs)
+binnedplot(qa_data$human_ye_prob, qa_data$human_ye_correct)
+binnedplot(qa_data$re_ye_prob, qa_data$re_ye_correct)
+binnedplot(qa_data$ra_ye_prob, qa_data$ra_ye_correct)
+binnedplot(qa_data$cage_re_ye_prob, qa_data$cage_re_ye_correct)
+binnedplot(qa_data$cage_ra_ye_prob, qa_data$cage_ra_ye_correct)
+
+model <- glm(ye_correct ~ model * ye_prob, data=qa_gather, family = 'binomial')
+qa_cal_model = model
+
+new_data <- tibble(ye_prob = seq(.3,.4,.001), model = 'human')
+preds <- predict(model, new_data, type='response')
+new_data <- new_data %>%
+  mutate(preds=preds)
+new_data %>%
+  ggplot(aes(ye_prob, preds)) + 
+  geom_point()
+new_data <- tibble(ye_prob = seq(.3,.4,.001), model = 're')
+preds <- predict(model, new_data, type='response')
+new_data <- new_data %>%
+  mutate(preds=preds)
+new_data %>%
+  ggplot(aes(ye_prob, preds)) + 
+  geom_point()
+new_data <- tibble(ye_prob = seq(.3,.4,.001), model = 'ra')
+preds <- predict(model, new_data, type='response')
+new_data <- new_data %>%
+  mutate(preds=preds)
+new_data %>%
+  ggplot(aes(ye_prob, preds)) + 
+  geom_point()
+new_data <- tibble(ye_prob = seq(.3,.4,.001), model = 'cage_re')
+preds <- predict(model, new_data, type='response')
+new_data <- new_data %>%
+  mutate(preds=preds)
+new_data %>%
+  ggplot(aes(ye_prob, preds)) + 
+  geom_point()
+new_data <- tibble(ye_prob = seq(.3,.4,.001), model = 'cage_ra')
+preds <- predict(model, new_data, type='response')
+new_data <- new_data %>%
+  mutate(preds=preds)
+new_data %>%
+  ggplot(aes(ye_prob, preds)) + 
+  geom_point()
+
+preds = predict(model, qa_gather, type='response')
+qa_gather <- qa_gather %>%
+  mutate(preds = preds)
+binnedplot(qa_gather$preds, qa_gather$ye_correct)
+binnedplot(nli_data$human_ye_prob, nli_data$human_ye_correct)
+binnedplot(nli_data$re_ye_prob, nli_data$re_ye_correct)
+binnedplot(nli_data$ra_ye_prob, nli_data$ra_ye_correct)
+binnedplot(nli_data$cage_re_ye_prob, nli_data$cage_re_ye_correct)
+binnedplot(nli_data$cage_ra_ye_prob, nli_data$cage_ra_ye_correct)
+
+plot(model)
+
+
+```
+
+
+
+
+```{r qa binning}
+
+qa_gather <- qa_gather %>%
+  mutate(bins100=bin(qa_gather$preds, nbins=100, method = 'length'),
+         bins4=bin(qa_gather$preds, nbins=4, method = 'length'),
+         bins3=bin(qa_gather$preds, nbins=3, method = 'length'),
+         bins2=bin(qa_gather$preds, nbins=2, method = 'length'),
+         )
+qa_gather %>%
+  group_by(bins4) %>%
+  summarise(n = n(),
+            ye_mean=mean(ye_correct))
+
+qa_gather <- qa_gather %>%
+  mutate(bins10= ifelse(between(preds, 0, .1), 0,
+               ifelse(between(preds, .1, .2), 1,
+               ifelse(between(preds, .2, .3), 2,
+               ifelse(between(preds, .3, .4), 3,
+               ifelse(between(preds, .4, .5), 4,
+               ifelse(between(preds, .5, .6), 5,
+               ifelse(between(preds, .6, .7), 6,
+               ifelse(between(preds, .7, .8), 7,
+               ifelse(between(preds, .8, .9), 8,
+               ifelse(between(preds, .9, 1), 9, NA
+               )))))))))))
+qa_gather %>%
+  group_by(bins10) %>%
+  summarise(n = n(),
+            ye_mean=mean(ye_correct))
+
+ 
+```
+
+
+```{r qa causal estimation}
+
+qa_gather %>%
+  group_by(model, ye_correct) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            n= sum(n))
+
+qa_gather %>%
+  group_by(model, bins2) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            n= sum(n))
+
+
+qa_gather %>%
+  group_by(model, bins4) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            n= sum(n))
+
+qa_gather %>%
+  group_by(model, bins10) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            yxe=mean(yxe_correct),
+            n= sum(n))
+
+
+qa_gather %>%
+  group_by(model, bins100) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(LAS,na.rm=TRUE),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            n= sum(n))
+
+qa_gather %>%
+  group_by(model, bins4) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(LAS),
+    n=n()) %>%
+  ungroup() %>%
+  ggplot(aes(bins4, LAS, color=model)) +
+    geom_boxplot()
+
+qa_gather %>%
+  ggplot(aes(preds, LAS, color=model)) +
+    geom_smooth(se=TRUE)
+
+qa_gather %>%
+  filter(preds > 0) %>%
+  ggplot(aes(preds, LAS, color=model)) +
+    geom_smooth(se=FALSE, method='lm', formula = y ~ poly(x,2)) + 
+    geom_hline(aes(yintercept=0)) + 
+  xlab("prob. leaking")
+
+qa_gather %>%
+  group_by(bins10) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+    arrange(bins10)
+
+qa_gather %>%
+  filter(model!='re') %>%
+  group_by(bins10) %>%
+  summarise(
+    mean(yxe_correct),
+    mean(yx_correct),
+    LAS = mean(yxe_correct)-mean(yx_correct),
+    n=n()) %>%
+    arrange(bins10)
+
+```
+
+
+
+```{r plots}
+
+
+nli_gather %>%
+  filter(preds > 0) %>%
+  ggplot(aes(preds, LAS, color=model)) +
+    geom_smooth(se=FALSE, method='lm', formula = y ~ poly(x,2)) + 
+    geom_hline(aes(yintercept=0)) + 
+  ylim(c(-.4,.1)) + 
+  labs(y="Avg. \n Effect", 
+       x = "Leakage Probability", 
+       title = "Human Ratings by Simulator Predictions") +
+  theme_classic() +
+  theme(axis.text.x = element_text(family = "Times New Roman",
+                                    size = 16,
+                                   color = "black"),
+        axis.text.y = element_text(family = "Times New Roman",
+                                    size = 16,
+                                   color = "black"),
+        axis.title.x = element_text(family = "Times New Roman",
+                                    size=16),
+        axis.title.y = element_text(family = "Times New Roman",
+                                    size=18,
+                                    angle=0,
+                                    vjust = .5,
+                                    color = "white"),
+        plot.title = element_text(family = "Times New Roman",
+                                  size = 18,
+                                  hjust = .5))
+
+
+
+
+```
+
+
+

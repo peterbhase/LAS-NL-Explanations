@@ -1,0 +1,5 @@
+torch==1.4
+transformers==2.5.1
+numpy
+pandas
+sacrebleu

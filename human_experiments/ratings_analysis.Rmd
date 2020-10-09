@@ -1,0 +1,645 @@
+---
+title: "ratings_analysis"
+author: "Peter Hase"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(Cairo)
+```
+
+
+```{r make full ratings dataframes}
+
+model_names <- c('human','re','ra','cage_re','cage_ra')
+
+qa_results <- qa_results %>%
+  mutate(unique_id = paste(WorkerId, Input.qa_id, sep="_"),
+         qa_id = Input.qa_id,
+        rate1  = Answer.rate1, 
+        rate2 = Answer.rate2, 
+        rate3 = Answer.rate3, 
+        rate4 = Answer.rate4, 
+        rate5 = Answer.rate5) %>%
+  dplyr::select(sample, WorkerId, unique_id, qa_id, rate1, rate2, rate3, rate4, rate5)
+
+qa_results <- qa_results %>%
+  left_join(qa_key, by = 'qa_id')
+
+qa_results <- qa_results %>%
+  mutate(human = NA,
+         re = NA,
+         ra = NA,
+         cage_re = NA,
+         cage_ra = NA)
+
+# deshuffle the explanations
+answer_cols <- c('rate1','rate2','rate3','rate4','rate5')
+for (i in 1:nrow(qa_results)){
+  order <- qa_results[i,c('model1','model2','model3','model4','model5')]
+  for (j in 1:5){
+    qa_results[i,order[j][[1]]] <- qa_results[i,answer_cols[j][[1]]]
+  }
+}
+
+qa_samples <- qa_samples %>%
+  mutate(qa_id = id)
+
+qa_results <- qa_results %>% 
+  left_join(qa_samples, by = 'qa_id')
+
+# model level rating dist.
+qa_results %>%
+  gather('model', 'rating', model_names) %>%
+  ggplot(aes(model, rating)) + 
+    geom_boxplot()
+
+qa_gather <- qa_results %>%
+  gather('model', 'rating', model_names) %>% 
+  mutate(label = ifelse(model=='human',human_label,
+                  ifelse(model=='re',re_model_label,
+                  ifelse(model=='ra',ra_model_label,
+                  ifelse(model=='cage_re',cage_re_model_label,
+                  ifelse(model=='cage_ra',cage_ra_model_label, NA))))),
+         yxe = ifelse(model=='human',human_yxe,
+                  ifelse(model=='re',re_model_yxe,
+                  ifelse(model=='ra',ra_model_yxe,
+                  ifelse(model=='cage_re',cage_re_model_yxe,
+                  ifelse(model=='cage_ra',cage_ra_model_yxe, NA))))),
+         ye = ifelse(model=='human',human_ye,
+                  ifelse(model=='re',re_model_ye,
+                  ifelse(model=='ra',ra_model_ye,
+                  ifelse(model=='cage_re',cage_re_model_ye,
+                  ifelse(model=='cage_ra',cage_ra_model_ye, NA))))),
+         yx = ifelse(model=='human',human_yx,
+                  ifelse(model=='re',re_model_yx,
+                  ifelse(model=='ra',ra_model_yx,
+                  ifelse(model=='cage_re',cage_re_model_yx,
+                  ifelse(model=='cage_ra',cage_ra_model_yx, NA))))),
+         ye_prob = ifelse(model=='human',human_ye_label_prob,
+                    ifelse(model=='re',re_model_ye_label_prob,
+                    ifelse(model=='ra',ra_model_ye_label_prob,
+                    ifelse(model=='cage_re',cage_re_model_ye_label_prob,
+                    ifelse(model=='cage_ra',cage_ra_model_ye_label_prob, NA))))),
+         LAS = yxe - yx,
+        choice = ifelse(label==0, choice0,
+                  ifelse(label==1,choice1,
+                  ifelse(label==2,choice2,NA))))
+
+nli_results <- nli_results %>%
+  mutate(unique_id = paste(WorkerId, Input.qa_id, sep="_"),
+         qa_id = Input.qa_id,
+        rate1  = Answer.rate1, 
+        rate2 = Answer.rate2, 
+        rate3 = Answer.rate3, 
+        rate4 = Answer.rate4, 
+        rate5 = Answer.rate5) %>%
+  dplyr::select(sample, WorkerId, unique_id, qa_id, rate1, rate2, rate3, rate4, rate5) %>%
+  na.omit()
+
+nli_results <- nli_results %>%
+  left_join(nli_key, by = 'qa_id')
+
+nli_results <- nli_results %>%
+  mutate(human = NA,
+         re = NA,
+         ra = NA,
+         cage_re = NA,
+         cage_ra = NA)
+
+# deshuffle the explanations
+answer_cols <- c('rate1','rate2','rate3','rate4','rate5')
+for (i in 1:nrow(nli_results)){
+  order <- nli_results[i,c('model1','model2','model3','model4','model5')]
+  for (j in 1:5){
+    nli_results[i,order[j][[1]]] <- nli_results[i,answer_cols[j][[1]]]
+  }
+}
+
+nli_samples <- nli_samples %>%
+  mutate(qa_id = id)
+
+nli_results <- nli_results %>% 
+  left_join(nli_samples, by = 'qa_id')
+
+# model level rating dist.
+nli_results %>%
+  gather('model', 'rating', model_names) %>%
+  ggplot(aes(model, rating)) + 
+    geom_boxplot()
+
+nli_gather <- nli_results %>%
+  gather('model', 'rating', model_names) %>% 
+  mutate(label = ifelse(model=='human',human_label,
+                  ifelse(model=='re',re_model_label,
+                  ifelse(model=='ra',ra_model_label,
+                  ifelse(model=='cage_re',cage_re_model_label,
+                  ifelse(model=='cage_ra',cage_ra_model_label, NA))))),
+         yxe = ifelse(model=='human',human_yxe,
+                  ifelse(model=='re',re_model_yxe,
+                  ifelse(model=='ra',ra_model_yxe,
+                  ifelse(model=='cage_re',cage_re_model_yxe,
+                  ifelse(model=='cage_ra',cage_ra_model_yxe, NA))))),
+         ye = ifelse(model=='human',human_ye,
+                  ifelse(model=='re',re_model_ye,
+                  ifelse(model=='ra',ra_model_ye,
+                  ifelse(model=='cage_re',cage_re_model_ye,
+                  ifelse(model=='cage_ra',cage_ra_model_ye, NA))))),
+         yx = ifelse(model=='human',human_yx,
+                  ifelse(model=='re',re_model_yx,
+                  ifelse(model=='ra',ra_model_yx,
+                  ifelse(model=='cage_re',cage_re_model_yx,
+                  ifelse(model=='cage_ra',cage_ra_model_yx, NA))))),
+         ye_prob = ifelse(model=='human',human_ye_label_prob,
+                    ifelse(model=='re',re_model_ye_label_prob,
+                    ifelse(model=='ra',ra_model_ye_label_prob,
+                    ifelse(model=='cage_re',cage_re_model_ye_label_prob,
+                    ifelse(model=='cage_ra',cage_ra_model_ye_label_prob, NA))))),
+         LAS = yxe - yx,
+         choice = ifelse(label==0, 'neutral',
+                  ifelse(label==1,'entailment',
+                  ifelse(label==2,'contradiction',NA))))
+
+nli_gather %>%
+  mutate(good = rating >= 4) %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            prop = mean(good))
+
+```
+
+
+```{r calibrate probabilities}
+
+### NOTE THIS REQUIRES qa_cal_model AND nli_cal_model FROM causal_estimation.Rmd in memory
+
+qa_probs = predict(qa_cal_model, qa_gather, type='response')
+binnedplot(qa_probs, qa_gather$ye)
+qa_gather <- qa_gather %>%
+  mutate(ye_prob_cal = qa_probs)
+
+nli_probs = predict(nli_cal_model, nli_gather, type='response')
+binnedplot(nli_probs, nli_gather$ye)
+nli_gather <- nli_gather %>%
+  mutate(ye_prob_cal = nli_probs)
+
+hist(qa_gather$ye_prob_cal)
+hist(nli_gather$ye_prob_cal)
+
+```
+
+
+
+```{r QA trend analysis}
+
+qa_use = qa_gather
+
+qa_use %>%
+  group_by(LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+qa_use %>%
+  group_by(yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+qa_use %>%
+  ggplot(aes(as.factor(LAS),rating)) +
+  geom_boxplot()
+
+qa_use %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            avg_rating = mean(rating),
+            CI = 1.96*sd(avg_rating)/sqrt(n))
+
+qa_use %>%
+  group_by(LAS, model) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  arrange(model)
+
+qa_use %>%
+  group_by(LAS, yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+qa_use %>%
+  group_by(ye, LAS, yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+qa_use %>%
+  group_by(ye, yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  arrange(yxe)
+
+qa_use %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  arrange(LAS)
+
+qa_use %>%
+  group_by(ye, yx) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  arrange(yx)
+
+qa_gather %>%
+  mutate(good = rating >= 4) %>%
+  group_by(yxe, model, qa_id) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  mutate(good = 1*(rating >= 4)) %>%
+  group_by(yxe, model) %>%
+  summarise(n = n(),
+            prop = mean(good)) %>%
+  mutate(freq = n / sum(n)) %>%
+  arrange(desc(yxe))
+
+qa_gather %>%
+  mutate(good = rating >= 4) %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            prop = mean(good))
+
+qa_use %>%
+  group_by(model) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+qa_use %>%
+  group_by(model, ye) %>%
+  summarise(
+    yxe = mean(yxe),
+    yx = mean(yx),
+    LAS = mean(yxe)-mean(yx),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            yxe_raw = mean(yxe),
+            yxe_weight = weighted.mean(yxe, w=n),
+            n= sum(n)) %>%
+  left_join(
+    qa_use %>%
+      group_by(model) %>%
+      summarise(n = n(),
+                rating = mean(rating))
+  ) %>%
+  arrange(rating)
+
+qa_use %>%
+  mutate(LAS_exact = paste(yxe, yx)) %>%
+  group_by(ye, LAS_exact) %>%
+  summarise(n = n(),
+            rating = mean(rating),
+            LAS = mean(LAS))
+
+```
+
+```{r QA models}
+
+ratings_model <- lm(rating ~ ye + LAS + yxe, data = qa_use)
+summary(ratings_model)
+
+summary(lm(rating ~ ye * LAS, data = qa_use))
+summary(lm(rating ~ ye * yxe, data = qa_use))
+summary(lm(rating ~ ye + LAS, data = qa_use))
+summary(lm(rating ~ ye + yxe, data = qa_use))
+summary(lm(rating ~ ye + yx + yxe, data = qa_use))
+summary(lm(rating ~ ye + yx + yxe, data = qa_use))
+summary(lm(rating ~ ye_prob_cal + yx + yxe, data = qa_use))
+summary(lm(rating ~ ye_prob_cal + yx + LAS, data = qa_use))
+summary(lm(rating ~ ye_prob_cal + yxe + LAS, data = qa_use))
+
+ratings_model <- lm(rating ~ ye + LAS, data = qa_use)
+summary(ratings_model)
+test_data <- qa_use %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  select(ye,LAS) %>%
+  ungroup()
+
+(test_data <- test_data %>%
+  mutate(preds = predict(ratings_model, test_data)))
+qa_use %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+
+ratings_model <- lm(rating ~ ye + yxe, data = qa_use)
+summary(ratings_model)
+test_data <- qa_use %>%
+  group_by(ye, yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  select(ye,yxe) %>%
+  ungroup()
+
+(test_data <- test_data %>%
+  mutate(preds = predict(ratings_model, test_data)))
+qa_use %>%
+  group_by(ye, yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+
+ratings_model <- lm(rating ~ ye + yxe + LAS, data = qa_use)
+summary(ratings_model)
+test_data <- qa_use %>%
+  group_by(ye, yxe, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  select(ye,yxe,LAS) %>%
+  ungroup()
+
+(test_data <- test_data %>%
+  mutate(preds = predict(ratings_model, test_data)))
+qa_use %>%
+  group_by(ye, yxe, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+
+summary(lm(rating ~ ye * LAS, data = qa_use))
+summary(lm(rating ~ ye * yxe, data = qa_use))
+summary(lm(rating ~ ye * (LAS + yxe), data = qa_use))
+summary(lm(rating ~ ye + (LAS + yxe), data = qa_use))
+summary(lm(rating ~ ye_prob_cal + yx + yxe, data = qa_use))
+summary(lm(rating ~ ye_prob_cal + yx + LAS, data = qa_use))
+summary(lm(rating ~ ye_prob_cal + yxe + LAS, data = qa_use))
+
+
+```
+
+
+```{r nli trend analysis}
+
+nli_use = nli_gather
+
+nli_use %>%
+  group_by(LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+nli_use %>%
+  group_by(yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+nli_use %>%
+  ggplot(aes(as.factor(LAS),rating)) +
+  geom_boxplot()
+
+nli_use %>%
+  group_by(sample, ye, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+nli_use %>%
+  group_by(LAS, model) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  arrange(model)
+
+nli_use %>%
+  group_by(LAS, yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+nli_use %>%
+  group_by(ye, LAS, yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+nli_use %>%
+  group_by(ye, yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  arrange(yxe)
+
+nli_use %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  arrange(LAS)
+
+nli_use %>%
+  group_by(ye, yx) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  arrange(yx)
+
+nli_use %>%
+  group_by(model, ye) %>%
+  summarise(
+    yxe = mean(yxe),
+    yx = mean(yx),
+    LAS = mean(yxe)-mean(yx),
+    n=n()) %>%
+  ungroup() %>%
+  group_by(model) %>%
+  summarise(LAS=mean(LAS),
+            yxe_raw = mean(yxe),
+            yxe_weight = weighted.mean(yxe, w=n),
+            n= sum(n)) %>%
+  left_join(
+    nli_use %>%
+      group_by(model) %>%
+      summarise(n = n(),
+                rating = mean(rating))
+  ) %>%
+  arrange(rating)
+
+```
+
+```{r nli models}
+
+ratings_model <- lm(rating ~ ye + LAS + yxe, data = nli_use)
+summary(ratings_model)
+
+summary(lm(rating ~ ye * LAS, data = nli_use))
+summary(lm(rating ~ ye * yxe, data = nli_use))
+summary(lm(rating ~ ye + LAS, data = nli_use))
+summary(lm(rating ~ ye + yxe, data = nli_use))
+summary(lm(rating ~ ye * LAS + yxe, data = nli_use))
+summary(lm(rating ~ ye + yx + yxe, data = nli_use))
+summary(lm(rating ~ ye_prob_cal + yx + yxe, data = nli_use))
+summary(lm(rating ~ ye_prob_cal * LAS + yx + LAS, data = nli_use))
+summary(lm(rating ~ ye_prob_cal * LAS + yxe, data = nli_use))
+
+ratings_model <- lm(rating ~ ye + LAS, data = nli_use)
+summary(ratings_model)
+test_data <- nli_use %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  select(ye,LAS) %>%
+  ungroup()
+  # mutate(LAS = as.factor(LAS))
+(test_data <- test_data %>%
+  mutate(preds = predict(ratings_model, test_data)))
+nli_use %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+
+ratings_model <- lm(rating ~ ye + yxe, data = nli_use)
+summary(ratings_model)
+test_data <- nli_use %>%
+  group_by(ye, yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  select(ye,yxe) %>%
+  ungroup()
+  # mutate(LAS = as.factor(LAS))
+(test_data <- test_data %>%
+  mutate(preds = predict(ratings_model, test_data)))
+nli_use %>%
+  group_by(ye, yxe) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+
+ratings_model <- lm(rating ~ ye + yxe + LAS, data = nli_use)
+summary(ratings_model)
+test_data <- nli_use %>%
+  group_by(ye, yxe, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating)) %>%
+  select(ye,yxe,LAS) %>%
+  ungroup()
+  # mutate(LAS = as.factor(LAS))
+(test_data <- test_data %>%
+  mutate(preds = predict(ratings_model, test_data)))
+nli_use %>%
+  group_by(ye, yxe, LAS) %>%
+  summarise(n = n(),
+            rating = mean(rating))
+
+ratings_model <- lm(rating ~ ye + yx, data = nli_use)
+summary(ratings_model)
+ratings_model <- lm(rating ~ ye + yx + yxe, data = nli_use)
+summary(ratings_model)
+ratings_model <- lm(rating ~ ye + as.factor(LAS), data = nli_use)
+summary(ratings_model)
+
+ratings_model <- lm(rating ~ as.factor(LAS), data = nli_use)
+summary(ratings_model)
+
+
+```
+
+
+
+```{r IAA}
+
+qa_use %>%
+  group_by(unique_id) %>%
+  summarise(avg_rating = mean(rating),
+            sd = sd(rating),
+            n = n())
+
+nli_use %>%
+  group_by(unique_id) %>%
+  summarise(avg_rating = mean(rating),
+            sd = sd(rating),
+            n = n())
+
+```
+
+
+
+```{r cqa paper tables}
+qa_use = qa_gather
+nli_use = nli_gather
+
+qa_use %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            avg_rating = mean(rating),
+            CI = 1.96*sd(rating)/sqrt(n))
+
+qa_use %>%
+  group_by(yx) %>%
+  summarise(n = n(),
+            avg_rating = round(mean(rating),2),
+            CI = round(1.96*sd(rating)/sqrt(n),2))
+
+
+(qa_bar_data <- qa_use %>%
+  group_by(ye) %>%
+  summarise(n = n(),
+            avg_rating = mean(rating),
+            CI = 1.96*sd(rating)/sqrt(n)) %>%
+  mutate(group = 'ye',
+         cor = ye) %>%
+  bind_rows( 
+    qa_use %>%
+      group_by(yxe) %>%
+      summarise(n = n(),
+                avg_rating = mean(rating),
+                CI = 1.96*sd(rating)/sqrt(n)) %>%
+      mutate(group='yxe',
+             cor=yxe)) %>%
+  dplyr::select(-c(ye,yxe))) %>%
+  mutate(avg_rating = round(avg_rating,2),
+         CI=round(CI,2))
+
+nli_use %>%
+  group_by(yx) %>%
+  summarise(n = n(),
+            avg_rating = mean(rating),
+            CI = 1.96*sd(rating)/sqrt(n))
+```
+
+
+```{r nli paper tables}
+nli_use %>%
+  group_by(ye, LAS) %>%
+  summarise(n = n(),
+            avg_rating = mean(rating),
+            CI = 1.96*sd(rating)/sqrt(n)) %>%
+    mutate(avg_rating = round(avg_rating,2),
+         CI=round(CI,2))
+
+nli_use %>%
+  group_by(yx) %>%
+  summarise(n = n(),
+            avg_rating = mean(rating),
+            CI = 1.96*sd(rating)/sqrt(n)) %>%
+    mutate(avg_rating = round(avg_rating,2),
+         CI=round(CI,2))
+
+(nli_bar_data <- nli_use %>%
+  group_by(ye) %>%
+  summarise(n = n(),
+            avg_rating = mean(rating),
+            CI = 1.96*sd(rating)/sqrt(n)) %>%
+  mutate(group = 'ye',
+         cor = ye) %>%
+  bind_rows( 
+    nli_use %>%
+      group_by(yxe) %>%
+      summarise(n = n(),
+                avg_rating = mean(rating),
+                CI = 1.96*sd(rating)/sqrt(n)) %>%
+      mutate(group='yxe',
+             cor=yxe)) %>%
+  dplyr::select(-c(ye,yxe))) %>%
+  mutate(avg_rating = round(avg_rating,2),
+         CI=round(CI,2))
+
+summary(lm(rating ~ ye + yx + yxe, data = qa_use))
+summary(lm(rating ~ ye + yx + yxe, data = nli_use))
+
+
+```

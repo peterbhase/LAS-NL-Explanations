@@ -1,0 +1,438 @@
+---
+title: "expert_analysis"
+author: "Peter Hase"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(Cairo)
+library(readxl)
+```
+
+
+```{r organize rater data for checking rater statistics}
+
+nli_human <- bind_rows(nli_human_peter, nli_human_shiyue, nli_human_harry)
+nli_STRa <- bind_rows(nli_STRa_peter, nli_STRa_shiyue, nli_STRa_harry)
+cqa_human <- bind_rows(cqa_human_peter, cqa_human_shiyue, cqa_human_harry)
+cqa_STRa <- bind_rows(cqa_STRa_peter, cqa_STRa_shiyue, cqa_STRa_harry)
+
+
+nli_human <- nli_human %>%
+  mutate(role = ifelse(premise == 'NONE' & hypothesis == 'NONE' & human_exp != 'NONE', 'e',
+                ifelse(premise != 'NONE' & hypothesis != 'NONE' & human_exp != 'NONE', 'xe',
+                ifelse(premise != 'NONE' & hypothesis != 'NONE' & human_exp == 'NONE', 'x',NA))),
+         rater = c(rep('peter',rep_num), rep('shiyue',rep_num), rep('harry',rep_num))
+  )
+
+nli_human <- left_join(nli_human, nli_data %>% select(unique_key, label), by='unique_key')
+
+nli_STRa <- nli_STRa %>%
+  mutate(role = ifelse(premise == 'NONE' & hypothesis == 'NONE' & model_exp != 'NONE', 'e',
+                ifelse(premise != 'NONE' & hypothesis != 'NONE' & model_exp != 'NONE', 'xe',
+                ifelse(premise != 'NONE' & hypothesis != 'NONE' & model_exp == 'NONE', 'x',NA))),
+         rater = c(rep('peter',rep_num), rep('shiyue',rep_num), rep('harry',rep_num))
+  )
+nli_data$model_correct <- 1*(nli_data$label==nli_data$cage_ra_label)
+nli_STRa <- left_join(nli_STRa, nli_data %>% select(unique_key, cage_ra_label, model_correct), by='unique_key')
+
+cqa_human <- cqa_human %>%
+  mutate(role = ifelse(question == 'NONE' & human_exp != 'NONE', 'e',
+                ifelse(question != 'NONE' & human_exp != 'NONE', 'xe',
+                ifelse(question != 'NONE' & human_exp == 'NONE', 'x',NA))),
+         rater = c(rep('peter',rep_num), rep('shiyue',rep_num), rep('harry',rep_num))
+  )
+
+cqa_human <- left_join(cqa_human, cqa_data %>% select(id, label), by='id')
+
+cqa_STRa <- cqa_STRa %>%
+  mutate(role = ifelse(question == 'NONE' & model_exp != 'NONE', 'e',
+                ifelse(question != 'NONE' & model_exp != 'NONE', 'xe',
+                ifelse(question != 'NONE' & model_exp == 'NONE', 'x',NA))),
+         rater = c(rep('peter',rep_num), rep('shiyue',rep_num), rep('harry',rep_num))
+  )
+cqa_data$model_correct <- 1*(cqa_data$label==cqa_data$cage_ra_label)
+cqa_STRa <- left_join(cqa_STRa, cqa_data %>% select(id, cage_ra_label, model_correct), by='id')
+
+```
+
+
+```{r check rater statistics}
+
+nli_human <- nli_human %>%
+  mutate(correct = 1*(pred==label))
+nli_STRa <- nli_STRa %>%
+  mutate(correct = 1*(pred==cage_ra_label))
+cqa_human <- cqa_human %>%
+  mutate(correct = 1*(pred==label))
+cqa_STRa <- cqa_STRa %>%
+  mutate(correct = 1*(pred==cage_ra_label))
+
+nli_human %>%
+  group_by(rater) %>%
+  summarize(n = n(),
+            acc = mean(correct))
+nli_STRa %>%
+  group_by(rater) %>%
+  summarize(n = n(),
+            acc = mean(correct))
+cqa_human %>%
+  group_by(rater) %>%
+  summarize(n = n(),
+            acc = mean(correct))
+cqa_STRa %>%
+  group_by(rater) %>%
+  summarize(n = n(),
+            acc = mean(correct))
+
+nli_human %>%
+  group_by(role) %>%
+  summarize(n = n(),
+            acc = mean(correct))
+nli_STRa %>%
+  group_by(role) %>%
+  summarize(n = n(),
+            acc = mean(correct))
+cqa_human %>%
+  group_by(role) %>%
+  summarize(n = n(),
+            acc = mean(correct))
+cqa_STRa %>%
+  group_by(role) %>%
+  summarize(n = n(),
+            acc = mean(correct))
+
+
+```
+
+
+```{r create merged versions data and spread versions of the data}
+
+nli_human$model <- 'human'
+nli_STRa$model <- 'STRa'
+nli_STRa$label <- nli_STRa$cage_ra_label
+cqa_human$model <- 'human'
+cqa_STRa$model <- 'STRa'
+cqa_STRa$label <- cqa_STRa$cage_ra_label
+
+nli_both <- bind_rows(nli_human, nli_STRa)
+cqa_both <- bind_rows(cqa_human, cqa_STRa)
+
+nli_human <- left_join(nli_human, nli_data %>%
+                        select(unique_key, human_yxe, human_yx, human_ye)) %>%
+            mutate(yxe = human_yxe,
+                   yx = human_yx,
+                   ye = human_ye,
+                   exp = human_exp) %>%
+        select(unique_key, premise, hypothesis, exp, pred, role, rater, label, correct, model, yxe, yx, ye)
+cqa_human <- left_join(cqa_human, cqa_data %>%
+                        select(id, human_yxe, human_yx, human_ye, cage_ra_yxe, cage_ra_yx, cage_ra_ye)) %>%
+            mutate(yxe = human_yxe,
+                   yx = human_yx,
+                   ye = human_ye,
+                   exp = human_exp) %>%
+        select(id, question, choice_0, choice_1, choice_2, exp, pred, role, rater, label, correct, model, yxe, yx, ye)
+nli_STRa <- left_join(nli_STRa, nli_data %>%
+                        select(unique_key, cage_ra_yxe, cage_ra_yx, cage_ra_ye)) %>%
+            mutate(yxe = cage_ra_yxe,
+                   yx = cage_ra_yx,
+                   ye = cage_ra_ye,
+                   exp = model_exp) %>%
+        select(unique_key, premise, hypothesis, exp, pred, role, rater, label, correct, model, yxe, yx, ye)
+cqa_STRa <- left_join(cqa_STRa, cqa_data %>%
+                        select(id, cage_ra_yxe, cage_ra_yx, cage_ra_ye)) %>%
+            mutate(yxe = cage_ra_yxe,
+                   yx = cage_ra_yx,
+                   ye = cage_ra_ye,
+                   exp = model_exp) %>%
+        select(id, question, choice_0, choice_1, choice_2, exp, pred, role, rater, label, correct, model, yxe, yx, ye)
+
+
+nli_both <- left_join(nli_both, nli_data %>%
+                        select(unique_key, human_yxe, human_yx, human_ye, cage_ra_yxe, cage_ra_yx, cage_ra_ye)) %>%
+            mutate(yxe = ifelse(model=='human',human_yxe,cage_ra_yxe),
+                   yx = ifelse(model=='human',human_yx,cage_ra_yx),
+                   ye = ifelse(model=='human',human_ye,cage_ra_ye),
+                   exp = ifelse(model=='human',human_exp,model_exp)) %>%
+        select(unique_key, premise, hypothesis, exp, pred, role, rater, label, correct, model_correct, model, yxe, yx, ye)
+cqa_both <- left_join(cqa_both, cqa_data %>%
+                        select(id, human_yxe, human_yx, human_ye, cage_ra_yxe, cage_ra_yx, cage_ra_ye)) %>%
+            mutate(yxe = ifelse(model=='human',human_yxe,cage_ra_yxe),
+                   yx = ifelse(model=='human',human_yx,cage_ra_yx),
+                   ye = ifelse(model=='human',human_ye,cage_ra_ye),
+                   exp = ifelse(model=='human',human_exp,model_exp)) %>%
+        select(id, question, choice_0, choice_1, choice_2, exp, pred, role, rater, label, correct, model_correct, model, yxe, yx, ye)
+
+# create spread versions too. NOTE y* means simulator. xe, x, and e are human predictions
+nli_human_spread <- nli_human %>%
+  select(unique_key, pred, role, yxe, yx, ye, label) %>%
+  spread(role, pred) %>%
+  mutate(xe_correct = (label==xe),
+         e_correct = (label==e),
+         x_correct = (label==x),
+         yxe_correct = (label==yxe),
+         ye_correct = (label==ye),
+         yx_correct = (label==yx))
+nli_stra_spread <- nli_STRa %>%
+  select(unique_key, pred, role, yxe, yx, ye, label) %>%
+  spread(role, pred) %>%
+  mutate(xe_correct = (label==xe),
+         e_correct = (label==e),
+         x_correct = (label==x),
+         yxe_correct = (label==yxe),
+         ye_correct = (label==ye),
+         yx_correct = (label==yx))
+cqa_human_spread <- cqa_human %>%
+  select(id, pred, role, yxe, yx, ye, label) %>%
+  spread(role, pred) %>%
+  mutate(xe_correct = (label==xe),
+         e_correct = (label==e),
+         x_correct = (label==x),
+         yxe_correct = (label==yxe),
+         ye_correct = (label==ye),
+         yx_correct = (label==yx))
+cqa_stra_spread <- cqa_STRa %>%
+  select(id, pred, role, yxe, yx, ye, label) %>%
+  spread(role, pred) %>%
+  mutate(xe_correct = (label==xe),
+         e_correct = (label==e),
+         x_correct = (label==x),
+         yxe_correct = (label==yxe),
+         ye_correct = (label==ye),
+         yx_correct = (label==yx))
+
+nli_human_spread <- nli_human_spread %>% 
+  mutate(model_LAS = yxe_correct - yx_correct,
+         human_LAS = xe_correct - x_correct)
+nli_stra_spread <- nli_stra_spread %>% 
+  mutate(model_LAS = yxe_correct - yx_correct,
+         human_LAS = xe_correct - x_correct)
+cqa_human_spread <- cqa_human_spread %>% 
+  mutate(model_LAS = yxe_correct - yx_correct,
+         human_LAS = xe_correct - x_correct)
+cqa_stra_spread <- cqa_stra_spread %>% 
+  mutate(model_LAS = yxe_correct - yx_correct,
+         human_LAS = xe_correct - x_correct)
+
+
+nli_both_spread <- bind_rows(nli_human_spread, nli_stra_spread)
+cqa_both_spread <- bind_rows(cqa_human_spread, cqa_stra_spread)
+
+```
+
+
+
+```{r check sampling constraints}
+
+nli_data %>% 
+  mutate(yxe_correct = (label==human_yxe),
+         yx_correct = (label==human_yx),
+         ye_correct = (label==human_ye)) %>%
+  group_by(ye_correct, yxe_correct) %>%
+  summarise(n=n())
+cqa_data %>% 
+  mutate(yxe_correct = (label==human_yxe),
+         yx_correct = (label==human_yx),
+         ye_correct = (label==human_ye)) %>%
+  group_by(ye_correct, yxe_correct) %>%
+  summarise(n=n())
+
+nli_human %>% 
+  mutate(yxe_correct = (label==yxe),
+         yx_correct = (label==yx),
+         ye_correct = (label==ye)) %>%
+  group_by(ye_correct, yxe_correct) %>%
+  summarise(n=n())
+nli_STRa %>% 
+  mutate(yxe_correct = (label==yxe),
+         yx_correct = (label==yx),
+         ye_correct = (label==ye)) %>%
+  group_by(ye_correct, yxe_correct) %>%
+  summarise(n=n())
+cqa_human %>% 
+  mutate(yxe_correct = (label==yxe),
+         yx_correct = (label==yx),
+         ye_correct = (label==ye)) %>%
+  group_by(ye_correct, yxe_correct) %>%
+  summarise(n=n())
+cqa_STRa %>% 
+  mutate(yxe_correct = (label==yxe),
+         yx_correct = (label==yx),
+         ye_correct = (label==ye)) %>%
+  group_by(ye_correct, yxe_correct) %>%
+  summarise(n=n())
+
+nli_human %>%
+  mutate(yxe_correct = (label==yxe),
+         yx_correct = (label==yx),
+         ye_correct = (label==ye)) %>%
+  group_by(ye_correct) %>%
+  summarise(mean(yxe_correct),
+            mean(yx_correct))
+
+```
+
+```{r add leaking variables to _both dfs}
+
+# NOTE HUMAN LEAKING ONLY VALID FOR role == 'e' in these dfs
+nli_both <- nli_both %>% 
+        mutate(model_leaking = 1*(ye==label),
+               human_leaking = 1*(pred==label),
+               model_LAS = ((yxe==label) - (yx==label)))
+
+cqa_both <- cqa_both %>% 
+        mutate(model_leaking = 1*(ye==label),
+               human_leaking = 1*(pred==label),
+               model_LAS = ((yxe==label) - (yx==label)))
+
+
+```
+
+
+```{r check data balance}
+
+nli_both %>%
+  group_by(model_correct) %>%
+  summarise(n=n())
+
+cqa_both %>%
+  group_by(model_correct) %>%
+  summarise(n=n())
+
+nli_both %>% 
+  filter(role=='e') %>%
+  group_by(human_leaking) %>%
+  summarise(n=n())
+
+cqa_both %>% 
+  filter(role=='e') %>%
+  group_by(human_leaking) %>%
+  summarise(n=n())
+
+```
+
+```{r check simulator accuracies}
+
+nli_human_spread %>%
+  summarise(model=mean(yxe_correct),
+            human=mean(xe_correct))
+nli_stra_spread %>%
+  summarise(model=mean(yxe_correct),
+            human=mean(xe_correct))
+cqa_human_spread %>%
+  summarise(model=mean(yxe_correct),
+            human=mean(xe_correct))
+cqa_stra_spread %>%
+  summarise(model=mean(yxe_correct),
+            human=mean(xe_correct))
+
+(78 - 61.33 + 94.66 - 76.66 + 90.66 - 76.66 + 68.66 - 66) / 4
+
+  
+```
+
+
+
+```{r check proxy variable quality}
+
+nli_both %>% 
+  filter(role=='e') %>%
+  group_by(model, model_leaking, human_leaking) %>%
+  summarise(n=n())
+
+cqa_both %>% 
+  filter(role=='e') %>%
+  group_by(model, model_leaking, human_leaking) %>%
+  summarise(n=n())
+
+nli_both %>%
+  filter(role=='e', model == 'human') %>%
+  group_by(model_leaking, human_leaking) %>%
+  summarise(n=n())
+
+# similar trends for human and stra, and for datasets, hence combine all of them for statistical testing
+
+(nli_table <- table(nli_both$model_leaking[nli_both$role=='e'], nli_both$human_leaking[nli_both$role=='e']))
+(cqa_table <- table(cqa_both$model_leaking[cqa_both$role=='e'], cqa_both$human_leaking[cqa_both$role=='e']))
+(table <- (nli_table+cqa_table))
+(leaking_var_transition_mat <- (table / c(sum(table[1,]), sum(table[2,]))))
+chisq.test(table)
+
+cor.test(1*nli_both_spread$ye_correct,
+         1*nli_both_spread$e_correct,
+         method='spearman') # rank correlation
+
+cor.test(1*nli_both_spread$ye_correct,
+         1*nli_both_spread$e_correct,
+         method='kendall')
+
+```
+
+
+```{r LAS variable quality testing}
+
+# note we do not compare simulators overall, since sampled data is not necessarily the same for the simulators, because of the per-model balancing constraints. but for each explaining model, we always have both simulator responses, so thats where we compare
+
+nli_human_spread <- nli_human_spread %>% 
+  mutate(model_LAS = yxe_correct - yx_correct,
+         human_LAS = xe_correct - x_correct)
+nli_stra_spread <- nli_stra_spread %>% 
+  mutate(model_LAS = yxe_correct - yx_correct,
+         human_LAS = xe_correct - x_correct)
+cqa_human_spread <- cqa_human_spread %>% 
+  mutate(model_LAS = yxe_correct - yx_correct,
+         human_LAS = xe_correct - x_correct)
+cqa_stra_spread <- cqa_stra_spread %>% 
+  mutate(model_LAS = yxe_correct - yx_correct,
+         human_LAS = xe_correct - x_correct)
+
+# nli human
+leaking <- nli_human_spread$e_correct
+(full_table1 <- table(nli_human_spread$model_LAS, nli_human_spread$human_LAS))
+cor.test(nli_human_spread$model_LAS, nli_human_spread$human_LAS, method='spearman') # rank correlation
+
+# nli stra
+leaking <- nli_stra_spread$e_correct
+(full_table2 <- table(nli_stra_spread$model_LAS, nli_stra_spread$human_LAS))
+cor.test(nli_stra_spread$model_LAS, nli_stra_spread$human_LAS, method='spearman') # rank correlation
+
+# cqa human
+leaking <- cqa_human_spread$e_correct
+(full_table3 <- table(cqa_human_spread$model_LAS, cqa_human_spread$human_LAS))
+cor.test(cqa_human_spread$model_LAS, cqa_human_spread$human_LAS, method='spearman') # rank correlation
+
+# cqa stra
+leaking <- cqa_stra_spread$e_correct
+(full_table4 <- table(cqa_stra_spread$model_LAS, cqa_stra_spread$human_LAS))
+cor.test(cqa_stra_spread$model_LAS, cqa_stra_spread$human_LAS, method='spearman') # rank correlation
+
+# combine based on model
+(full_table2+full_table4)
+cor.test(c(cqa_stra_spread$model_LAS, nli_stra_spread$model_LAS),
+         c(cqa_stra_spread$human_LAS, nli_stra_spread$human_LAS),
+         method='spearman') # rank correlation
+
+(full_table1+full_table3)
+cor.test(c(cqa_human_spread$model_LAS, nli_human_spread$model_LAS),
+         c(cqa_human_spread$human_LAS, nli_human_spread$human_LAS),
+         method='spearman') # rank correlation
+cor.test(c(cqa_human_spread$model_LAS, nli_human_spread$model_LAS),
+         c(cqa_human_spread$human_LAS, nli_human_spread$human_LAS),
+         method='pearson') # rank correlation
+
+# combine all
+(full_table1+full_table2+full_table3+full_table4)
+cor.test(c(cqa_human_spread$model_LAS, nli_human_spread$model_LAS, c(cqa_stra_spread$model_LAS, nli_stra_spread$model_LAS)),
+         c(cqa_human_spread$human_LAS, nli_human_spread$human_LAS, c(cqa_stra_spread$human_LAS, nli_stra_spread$human_LAS)),
+         method='spearman') # rank correlation
+cor.test(c(cqa_human_spread$model_LAS, nli_human_spread$model_LAS, c(cqa_stra_spread$model_LAS, nli_stra_spread$model_LAS)),
+         c(cqa_human_spread$human_LAS, nli_human_spread$human_LAS, c(cqa_stra_spread$human_LAS, nli_stra_spread$human_LAS)),
+         method='pearson') # rank correlation
+
+all_table <- (full_table1+full_table2+full_table3+full_table4)
+round(all_table / c(sum(all_table[1,]), sum(all_table[2,]), sum(all_table[3,])),3)
+
+```
+
+
