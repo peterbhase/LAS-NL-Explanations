@@ -1,5 +1,7 @@
 # Leakage-Adjusted Simulatability
-This is the codebase for the paper *Leakage-Adjusted Simulatability: Can Models Generate Non-Trivial Explanations of Their Behavior in Natural Language?*
+This is the codebase for the paper:  
+[Leakage-Adjusted Simulatability: Can Models Generate Non-Trivial Explanations of Their Behavior in Natural Language?](https://arxiv.org/abs/2010.04119)  
+Peter Hase, Shiyue Zhang, Harry Xie, Mohit Bansal. Findings of EMNLP 2020
 
 ## Repository Structure
 
