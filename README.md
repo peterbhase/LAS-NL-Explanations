@@ -11,13 +11,15 @@ Peter Hase, Shiyue Zhang, Harry Xie, Mohit Bansal. Findings of EMNLP 2020
     |__ models/ --> includes wrappers for T5 model for multiple choice tasks
     |__ training_reports/ --> includes wrappers for T5 model for multiple choice tasks
     |__ main.py --> train task model or simulator model on SNLI or CQA
-    |__ T5-2-agent_main.py --> train models for two-agent experiments [SGD] in paper
+    |__ T5-2-agent_main.py --> train models for multi-agent experiments [SGD] in paper
     |__ compute_sim.py --> script for computing LAS score for model explanations
     |__ run_tasks.py --> script for running experimental conditions across seeds
     |__ *.py --> utilities for data loading, explanation sampling, etc.
     |__ causal_estimation.Rmd --> R markdown script used to calibrate simulator models and compute LAS with *k* bins
 |__ alternative_objectives/ --> Directory with additional experimental scripts
     |__ code coming soon
+|__ rl_experiments/ --> Directory with code for multi-agent [RL] experimental scripts
+    |__ see internal README
 |__ human_experiments/ --> Directory with R code for analyzing human experiment data        
     |__ ratings_analysis.Rmd --> R markdown script used to analyze human quality ratings
     |__ expert_analysis.Rmd --> R markdown script used to analyze expert simulation data
